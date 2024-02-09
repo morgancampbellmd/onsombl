@@ -1,0 +1,109 @@
+{
+  "name": "onsombl",
+  "displayName": "onsombl",
+  "description": "VS Code Extension adding utilities to facilitate pair & ensemble programming",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "author": {
+    "name": "Morgan Campbell",
+    "email": "morgancampbellmd@gmail.com"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "onsomble.webhookConfig",
+      "properties": {
+        "onsomble.webhookConfig.inviteType": {
+          "type": ["enum"],
+          "enum": [
+            "slack",
+            "email",
+            "null"
+          ],
+          "default": "null",
+          "description": "Select the type of webhook the invitation will be sent to."
+        },
+        "onsomble.webhookConfig.inviteAddress": {
+          "type": [
+            "string",
+            null
+          ],
+          "default": null,
+          "description": "Specifies the receiving endpoint of the invitation webhook. (May be a slack channel webhook, an email distribution list)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "onsombl.session.open",
+        "category": "Onsombl",
+        "title": "Open Session"
+      },
+      {
+        "command": "onsombl.session.sendInviteNotification",
+        "category": "Onsombl",
+        "title": "Send Invite"
+      },
+      {
+        "command": "onsombl.session.begin",
+        "category": "Onsombl",
+        "title": "Begin Timer"
+      },
+      {
+        "command": "onsombl.session.end",
+        "category": "Onsombl",
+        "title": "Close Session"
+      },
+      {
+        "command": "onsombl.timer.start",
+        "category": "Onsombl",
+        "title": "Start Timer"
+      },
+      {
+        "command": "onsombl.timer.stop",
+        "category": "Onsombl",
+        "title": "Stop Timer"
+      },
+      {
+        "command": "onsombl.timer.pause",
+        "category": "Onsombl",
+        "title": "Pause Timer"
+      },
+      {
+        "command": "onsombl.timer.resume",
+        "category": "Onsombl",
+        "title": "Resume Timer"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.86.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "vsls": "^1.0.4753"
+  },
+  "extensionDependencies": [
+    "ms-vsliveshare.vsliveshare"
+  ]
+}
