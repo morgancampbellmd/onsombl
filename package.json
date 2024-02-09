@@ -16,9 +16,9 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "onsomble.webhookConfig",
+      "title": "onsombl.webhookConfig",
       "properties": {
-        "onsomble.webhookConfig.inviteType": {
+        "onsombl.webhookConfig.inviteType": {
           "type": ["enum"],
           "enum": [
             "slack",
@@ -28,7 +28,7 @@
           "default": "null",
           "description": "Select the type of webhook the invitation will be sent to."
         },
-        "onsomble.webhookConfig.inviteAddress": {
+        "onsombl.webhookConfig.inviteAddress": {
           "type": [
             "string",
             null

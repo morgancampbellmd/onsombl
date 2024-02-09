@@ -37,7 +37,7 @@ export async function initRaidBar(extensionUri: Uri): Promise<RaidBar | null> {
 
 export async function dispatchInviteEvent(id: string | null, hostEmail?: string | null) {
   
-  const inviteConfig: RaidConfiguration = workspace.getConfiguration('onsomble.inviteConfig');
+  const inviteConfig: RaidConfiguration = workspace.getConfiguration('onsombl.inviteConfig');
 
   if (!inviteConfig?.inviteType) {
       window.showInformationMessage('Unable to send invitation: Invite Type not specified in settings');
