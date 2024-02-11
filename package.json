@@ -17,25 +17,35 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "onsombl.webhookConfig",
+      "title": "Onsombl",
       "properties": {
-        "onsombl.webhookConfig.inviteType": {
-          "type": ["enum"],
-          "enum": [
-            "slack",
-            "email",
-            "null"
+        "onsombl.inviteConfig.webhookType": {
+          "enumItemLabels": [
+            "Slack (email)",
+            "Slack (integration)",
+            "Email",
+            "None"
           ],
-          "default": "null",
-          "description": "Select the type of webhook the invitation will be sent to."
-        },
-        "onsombl.webhookConfig.inviteAddress": {
-          "type": [
-            "string",
+          "enumDescriptions": [
+            "Link will be sent as a Slack message to the specified channel/group as an email.",
+            "Link will be sent as a Slack message to the specified webhook. (Webhook integration must be configured to receive properties: hostEmail(string), message(string), url(string)",
+            "Link will be sent to the specified address as an email.",
             null
           ],
+          "enum": [
+            "slack-email",
+            "slack-integration",
+            "email",
+            null
+          ],
+          "type": "string",
           "default": null,
-          "description": "Specifies the receiving endpoint of the invitation webhook. (May be a slack channel webhook, an email distribution list)"
+          "description": "Select the type of webhook the LiveShare link will be sent to. (Link will also be available to copy from Live Share notification)"
+        },
+        "onsombl.inviteConfig.webhookAddress": {
+          "type": "string",
+          "default": null,
+          "description": "Set the endpoint where invite notifications should be sent when starting a session. (May be a slack channel webhook, an email distribution list)"
         }
       }
     },
