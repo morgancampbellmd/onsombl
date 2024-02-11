@@ -1,6 +1,6 @@
 import { Uri, extensions, window, workspace } from 'vscode';
 import { LiveShare, LiveShareExtension } from 'vsls';
-import { RaidBar } from './manager';
+import { Manager } from './manager';
 import { VSLS_EXT_ID, VSLS_VERSION, EXT_ROOT } from './contants';
 import { RaidConfiguration, InviteType, SlackRequestBody } from './configuration';
 import { Timer } from './timer';
@@ -22,17 +22,20 @@ export async function initApi(): Promise<LiveShare | null> {
   return liveShareApi;
 };
 
-export async function initRaidBar(extensionUri: Uri): Promise<RaidBar | null> {
+export async function init(): Promise<boolean> {
+  if (Manager.ready && Timer.ready) {
+    return true;
+  }
 
   const api = await initApi();
   if (!api) {
     window.showErrorMessage(`${EXT_ROOT}: Failed to get Live Share Extension API`);
-    return null;
+    return false;
   }
 
-  RaidBar.init(api);
+  Manager.init(api);
   Timer.init(api);
-  return RaidBar.instance;
+  return true;
 }
 
 export async function dispatchInviteEvent(id: string | null, hostEmail?: string | null) {
@@ -72,10 +75,4 @@ export async function dispatchInviteEvent(id: string | null, hostEmail?: string 
 
   await fetch(inviteConfig.inviteUrl, requestInit);
 }
-export function displayTime(time_ms: number): string | undefined {
-  const s = Math.round(time_ms / 1000);
-  const minutes = String(Math.floor(s / 60));
-  const seconds = String(s % 60);
 
-  return `${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
-}

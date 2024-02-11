@@ -6,6 +6,7 @@
   "engines": {
     "vscode": "^1.86.0"
   },
+  "activationEvents": ["onStartupFinished"],
   "author": {
     "name": "Morgan Campbell",
     "email": "morgancampbellmd@gmail.com"
@@ -40,42 +41,42 @@
     },
     "commands": [
       {
-        "command": "onsombl.session.open",
+        "command": "onsombl.sessionOpen",
         "category": "Onsombl",
         "title": "Open Session"
       },
       {
-        "command": "onsombl.session.sendInviteNotification",
+        "command": "onsombl.sessionSendInviteNotification",
         "category": "Onsombl",
         "title": "Send Invite"
       },
       {
-        "command": "onsombl.session.begin",
+        "command": "onsombl.sessionBegin",
         "category": "Onsombl",
         "title": "Begin Timer"
       },
       {
-        "command": "onsombl.session.end",
+        "command": "onsombl.sessionEnd",
         "category": "Onsombl",
         "title": "Close Session"
       },
       {
-        "command": "onsombl.timer.start",
+        "command": "onsombl.timerStart",
         "category": "Onsombl",
         "title": "Start Timer"
       },
       {
-        "command": "onsombl.timer.stop",
+        "command": "onsombl.timerStop",
         "category": "Onsombl",
         "title": "Stop Timer"
       },
       {
-        "command": "onsombl.timer.pause",
+        "command": "onsombl.timerPause",
         "category": "Onsombl",
         "title": "Pause Timer"
       },
       {
-        "command": "onsombl.timer.resume",
+        "command": "onsombl.timerResume",
         "category": "Onsombl",
         "title": "Resume Timer"
       }

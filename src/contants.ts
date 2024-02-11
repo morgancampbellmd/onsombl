@@ -24,14 +24,15 @@ export const tc: Record<string, ColorPalette> = {
   }
 };
 
-export enum ExtCommands {
-	OPEN_SESSION = `${EXT_ROOT}.session.open`,
-	SEND_INVITE = `${EXT_ROOT}.session.sendInviteNotification`,
-	BEGIN_SESSION = `${EXT_ROOT}.session.begin`,
-	END_SESSION = `${EXT_ROOT}.session.end`,
-	PAUSE_TIMER = `${EXT_ROOT}.timer.pause`,
-	RESUME_TIMER = `${EXT_ROOT}.timer.resume`,
-  START_TIMER = `${EXT_ROOT}.timer.start`,
-  STOP_TIMER = `${EXT_ROOT}.timer.stop`,
-}
+export const ExtCommands = {
+	OPEN_SESSION: `${EXT_ROOT}.sessionOpen`,
+	SEND_INVITE: `${EXT_ROOT}.sessionSendInviteNotification`,
+	BEGIN_SESSION: `${EXT_ROOT}.sessionBegin`,
+	END_SESSION: `${EXT_ROOT}.sessionEnd`,
+	PAUSE_TIMER: `${EXT_ROOT}.timerPause`,
+	RESUME_TIMER: `${EXT_ROOT}.timerResume`,
+  START_TIMER: `${EXT_ROOT}.timerStart`,
+  STOP_TIMER: `${EXT_ROOT}.timerStop`,
+};
+
 

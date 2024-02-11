@@ -3,29 +3,32 @@ import { LiveShare, Peer, Access } from 'vsls';
 import { dispatchInviteEvent } from './utils';
 import { Timer } from './timer';
 
-export class RaidBar {
-    private static _instance: RaidBar | undefined;
+export class Manager {
+    static #instance: Manager | undefined;
 
     static init(vsls: LiveShare) {
-        this._instance = new RaidBar(vsls);
+        this.#instance ??= new Manager(vsls);
+        return this.#instance;
     }
 
     static get instance() {
-        if (!this._instance) {
+        if (!this.#instance) {
             throw new TypeError('Cannot read RaidBar instance before it has been initialized');
         }
-        return this._instance;
+        return this.#instance;
     }
 
     static get ready() {
-        return !!this._instance;
+        return !!this.#instance;
     }
 
     private constructor(
         private vsls: LiveShare,
-    ) {}
+    ) {
+        this.timerBar = Timer.init(vsls);
+    }
 
-    timerBar = Timer.instance;
+    timerBar: Timer | undefined;
     peers: Peer[] = [];
 
     duration = 10 * 1000;
@@ -73,7 +76,7 @@ export class RaidBar {
         // Set Driver & Navigator
         //
         // Start timer
-        this.timerBar.start(this.duration);
+        this.timerBar!.start(this.duration);
     }
 
 

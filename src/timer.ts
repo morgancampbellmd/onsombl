@@ -1,23 +1,30 @@
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
 import { LiveShare } from 'vsls';
 import { ColorPalette, ExtCommands, tc } from './contants';
-import { displayTime } from './utils';
+import { displayTime } from './displayTime';
 
 export class Timer {
   private _bar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -3);
+
   static #instance: Timer | undefined;
+
   static init(vsls: LiveShare) {
-    this.#instance = new Timer(vsls);
+    this.#instance ??= new Timer(vsls);
+    return this.#instance;
   }
 
   constructor(private vsls: LiveShare) {
   }
 
   static get instance() {
-    if (!Timer.#instance) {
+    if (!this.#instance) {
       throw new TypeError('Tried to access timer after it was disposed');
     }
-    return Timer.#instance;
+    return this.#instance;
+  }
+
+  static get ready() {
+    return !!this.#instance;
   }
 
   get color(): Partial<ColorPalette> {
