@@ -1,36 +1,20 @@
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
 import { LiveShare } from 'vsls';
-import { ColorPalette, ExtCommands, tc } from './contants';
+import { ColorPalette, ExtCommands, tc } from './constants';
 import { displayTime } from './displayTime';
 
 export class Timer {
   private _bar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -3);
 
-  static #instance: Timer | undefined;
-
-  static init(vsls: LiveShare) {
-    this.#instance ??= new Timer(vsls);
-    return this.#instance;
-  }
-
-  constructor(private vsls: LiveShare) {
-  }
-
-  static get instance() {
-    if (!this.#instance) {
-      throw new TypeError('Tried to access timer after it was disposed');
-    }
-    return this.#instance;
-  }
-
-  static get ready() {
-    return !!this.#instance;
+  constructor(
+    private vsls: LiveShare
+  ) {
   }
 
   get color(): Partial<ColorPalette> {
     return {
+      bg: this._bar.backgroundColor,
       fg: this._bar.color,
-      bg: this._bar.backgroundColor
     };
   }
   set color(c: ColorPalette) {
@@ -79,7 +63,7 @@ export class Timer {
         timestamp: new Date()
       });
     }
-  
+
     this.setText();
     this.setColor();
   }
@@ -153,7 +137,6 @@ export class Timer {
   public dispose() {
     this.haltUpdates();
     this._bar.dispose();
-    Timer.#instance = undefined;
   }
 }
 

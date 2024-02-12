@@ -4,31 +4,12 @@ import { dispatchInviteEvent } from './utils';
 import { Timer } from './timer';
 
 export class Manager {
-    static #instance: Manager | undefined;
-
-    static init(vsls: LiveShare) {
-        this.#instance ??= new Manager(vsls);
-        return this.#instance;
-    }
-
-    static get instance() {
-        if (!this.#instance) {
-            throw new TypeError('Cannot read RaidBar instance before it has been initialized');
-        }
-        return this.#instance;
-    }
-
-    static get ready() {
-        return !!this.#instance;
-    }
-
-    private constructor(
+    constructor(
         private vsls: LiveShare,
+        private timer: Timer
     ) {
-        this.timerBar = Timer.init(vsls);
     }
 
-    timerBar: Timer | undefined;
     peers: Peer[] = [];
 
     duration = 10 * 1000;
@@ -76,7 +57,7 @@ export class Manager {
         // Set Driver & Navigator
         //
         // Start timer
-        this.timerBar!.start(this.duration);
+        this.timer.start(this.duration);
     }
 
 
