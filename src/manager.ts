@@ -18,7 +18,7 @@ export class Manager {
     private driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
 
 
-    disposables: { dispose(): void }[] = [
+    disposables: { dispose(): void; }[] = [
         this.navigatorBar,
         this.driverBar,
     ];
@@ -35,7 +35,7 @@ export class Manager {
                 access: Access.ReadWrite,
             });
         }
-
+        this.timer.startRemoteListener();
         // wait for people to join...
         // - setup onjoin listener
 

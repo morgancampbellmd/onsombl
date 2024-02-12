@@ -1,7 +1,8 @@
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
 import { LiveShare } from 'vsls';
-import { ColorPalette, ExtCommands, tc } from './constants';
+import { ColorPalette, ExtCommands, tc, EXT_ROOT } from './constants';
 import { displayTime } from './displayTime';
+import { note } from './utils';
 
 export class Timer {
   private _bar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -3);
@@ -28,7 +29,9 @@ export class Timer {
   #duration = 0;
   #remainingMs = 0;
 
-  get remainingMs() {
+  readonly eventGroup = `${EXT_ROOT}/${this.constructor.name}`;
+
+  getRemainingMs() {
     if (this.#textUpdateRef) {
       this.#remainingMs = this.#endTime - Date.now();
     }
@@ -42,7 +45,7 @@ export class Timer {
     this.#endTime = ms + Date.now();
   }
   get finished() {
-    return this.remainingMs <= 0;
+    return this.getRemainingMs() <= 0;
   }
 
 
@@ -59,9 +62,13 @@ export class Timer {
   public triggerUpdates(event: string) {
     if (this.vsls.postActivity) {
       this.vsls.postActivity({
-        name: event,
+        name: `${this.eventGroup}/${event}`,
+        data: {
+          source: this.vsls.session.peerNumber,
+        },
         timestamp: new Date()
       });
+      note.information(`Posted activity!: ${event}`);
     }
 
     this.setText();
@@ -82,7 +89,7 @@ export class Timer {
   }
 
   public resume() {
-    this.duration = this.remainingMs;
+    this.duration = this.getRemainingMs();
     this.triggerUpdates(this.resume.name);
     this._bar.command = ExtCommands.PAUSE_TIMER;
   }
@@ -93,7 +100,7 @@ export class Timer {
   }
 
   private setText() {
-    this._bar.text = this.finished ? 'TAG OUT' : `${displayTime(this.remainingMs)} remaining`;
+    this._bar.text = this.finished ? 'TAG OUT' : `${displayTime(this.getRemainingMs())} remaining`;
     const refreshRate = this.finished ? 1000 : 100;
 
     clearTimeout(this.#textUpdateRef);
@@ -116,19 +123,30 @@ export class Timer {
   startRemoteListener() {
     if (this.vsls.onActivity) {
       this.vsls.onActivity((event) => {
-        const data = event.data || this.#duration;
+
+        if (event.data?.source === this.vsls.session.peerNumber) {
+          note.warning(`Saw my own update ${event.name}`);
+          return;
+        }
+        else if (!event.name.startsWith(this.eventGroup)) {
+          note.information('Non-timer event', JSON.stringify(event));
+          return;
+        }
+
+        const newDuration = event.data?.duration || this.#duration;
         const name = event.name;
+
         switch (name) {
           case 'resume':
-            this.resume(); break;
+            return this.resume();
           case 'pause':
-            this.pause(); break;
+            return this.pause();
           case 'start':
-            this.start(data); break;
+            return this.start(newDuration);
           case 'stop':
-            this.stop(); break;
+            return this.stop();
           default:
-            console.log('Non-timer event', JSON.stringify(event));
+            throw new Error(`Unexpected default case in Timer.startRemoteListener.onActivity ${JSON.stringify(event)}`);
         }
       });
     }
