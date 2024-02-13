@@ -20,9 +20,9 @@ const formatMessage = (message: string) => `${EXT_ROOT}: ${message}`;
 
 
 export const note = {
-  information: (message: string, ...items: string[]) => window.showInformationMessage(formatMessage(message), ...items),
+  info: (message: string, ...items: string[]) => window.showInformationMessage(formatMessage(message), ...items),
   error: (message: string, ...items: string[]) => window.showErrorMessage(formatMessage(message), ...items),
-  warning: (message: string, ...items: string[]) => window.showWarningMessage(formatMessage(message), ...items),
+  warn: (message: string, ...items: string[]) => window.showWarningMessage(formatMessage(message), ...items),
 };
 
 
@@ -30,10 +30,10 @@ export async function dispatchInviteEvent(id: string | null, hostEmail?: string 
   const inviteConfig: RaidConfiguration = workspace.getConfiguration('onsombl.inviteConfig');
 
   if (!inviteConfig?.inviteType) {
-    note.information('Unable to send invitation: Invite Type not specified in settings');
+    note.info('Unable to send invitation: Invite Type not specified in settings');
     return;
   } else if (!inviteConfig?.inviteUrl) {
-    note.information('Unable to send invitation: Invite URL not specified in settings');
+    note.info('Unable to send invitation: Invite URL not specified in settings');
     return;
   } else if (!id) {
     note.error('Invite dispatch failed: No session ID has been created yet');

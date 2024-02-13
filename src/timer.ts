@@ -41,6 +41,7 @@ export class Timer {
     }
     return this.#remainingMs;
   }
+
   get duration() {
     return this.#duration;
   }
@@ -48,6 +49,7 @@ export class Timer {
     this.#duration = ms;
     this.#endTime = ms + Date.now();
   }
+
   get finished() {
     return this.getRemainingMs() <= 0;
   }
@@ -121,16 +123,16 @@ export class Timer {
 
   activityHandler(event: Activity) {
     if (event.data?.source === this._vsls.session.peerNumber) {
-      note.warning(`Saw my own update ${event.name}`);
+      note.warn(`Saw my own update ${event.name}`);
       return;
     }
     else if (!event.name.startsWith(this.eventGroup)) {
-      note.information('Non-timer event', JSON.stringify(event));
+      note.info('Non-timer event', JSON.stringify(event));
       return;
     }
 
     const newDuration = event.data?.duration || this.#duration;
-    const name = event.name;
+    const name = event.name.split('/').at(-1);
 
     switch (name) {
       case 'resume':

@@ -18,7 +18,7 @@ export async function activate(context: ExtensionContext) {
 	const open = commands.registerCommand(ExtCommands.OPEN_SESSION, async () => {
 		await Manager.startShareSession();
 
-		note.information('I just started a session');
+		note.info('I just started a session');
    });
 
 	const invite = commands.registerCommand(ExtCommands.SEND_INVITE, () => {
@@ -34,7 +34,7 @@ export async function activate(context: ExtensionContext) {
 	});
 
 	const end = commands.registerCommand(ExtCommands.END_SESSION, async () => {
-		note.information('I just ended a session');
+		note.info('I just ended a session');
 	});
 
 	context.subscriptions.push(
