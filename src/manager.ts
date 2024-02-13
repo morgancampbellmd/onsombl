@@ -35,7 +35,7 @@ export class Manager {
                 access: Access.ReadWrite,
             });
         }
-        this.timer.startRemoteListener();
+        this.timer.initActivityListener();
         // wait for people to join...
         // - setup onjoin listener
 
