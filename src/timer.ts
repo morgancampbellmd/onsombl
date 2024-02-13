@@ -5,11 +5,15 @@ import { displayTime } from './displayTime';
 import { note } from './utils';
 
 export class Timer {
-  private _bar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -3);
+  readonly eventGroup = `${EXT_ROOT}/${this.constructor.name}`;
+  private readonly _bar: StatusBarItem;
+  private readonly _vsls: LiveShare;
 
   constructor(
-    private vsls: LiveShare
+    vsls: LiveShare
   ) {
+    this._vsls = vsls;
+    this._bar = window.createStatusBarItem(StatusBarAlignment.Left, -3);
   }
 
   get color(): Partial<ColorPalette> {
@@ -29,7 +33,6 @@ export class Timer {
   #duration = 0;
   #remainingMs = 0;
 
-  readonly eventGroup = `${EXT_ROOT}/${this.constructor.name}`;
 
   getRemainingMs() {
     if (this.#textUpdateRef) {
@@ -60,11 +63,11 @@ export class Timer {
   }
 
   public triggerUpdates(event: string) {
-    if (this.vsls.postActivity) {
-      this.vsls.postActivity({
+    if (this._vsls.postActivity) {
+      this._vsls.postActivity({
         name: `${this.eventGroup}/${event}`,
         data: {
-          source: this.vsls.session.peerNumber,
+          source: this._vsls.session.peerNumber,
         },
         timestamp: new Date()
       });
@@ -82,6 +85,11 @@ export class Timer {
     this.triggerUpdates(this.start.name);
   }
 
+  public stop() {
+    this.haltUpdates();
+    this._bar.command = ExtCommands.START_TIMER;
+  }
+
   public pause() {
     this.triggerUpdates(this.pause.name);
     this.haltUpdates();
@@ -92,11 +100,6 @@ export class Timer {
     this.duration = this.getRemainingMs();
     this.triggerUpdates(this.resume.name);
     this._bar.command = ExtCommands.PAUSE_TIMER;
-  }
-
-  public stop() {
-    this.haltUpdates();
-    this._bar.command = ExtCommands.START_TIMER;
   }
 
   private setText() {
@@ -121,35 +124,33 @@ export class Timer {
   }
 
   startRemoteListener() {
-    if (this.vsls.onActivity) {
-      this.vsls.onActivity((event) => {
+    this._vsls.onActivity && this._vsls.onActivity((event) => {
 
-        if (event.data?.source === this.vsls.session.peerNumber) {
-          note.warning(`Saw my own update ${event.name}`);
-          return;
-        }
-        else if (!event.name.startsWith(this.eventGroup)) {
-          note.information('Non-timer event', JSON.stringify(event));
-          return;
-        }
+      if (event.data?.source === this._vsls.session.peerNumber) {
+        note.warning(`Saw my own update ${event.name}`);
+        return;
+      }
+      else if (!event.name.startsWith(this.eventGroup)) {
+        note.information('Non-timer event', JSON.stringify(event));
+        return;
+      }
 
-        const newDuration = event.data?.duration || this.#duration;
-        const name = event.name;
+      const newDuration = event.data?.duration || this.#duration;
+      const name = event.name;
 
-        switch (name) {
-          case 'resume':
-            return this.resume();
-          case 'pause':
-            return this.pause();
-          case 'start':
-            return this.start(newDuration);
-          case 'stop':
-            return this.stop();
-          default:
-            throw new Error(`Unexpected default case in Timer.startRemoteListener.onActivity ${JSON.stringify(event)}`);
-        }
-      });
-    }
+      switch (name) {
+        case 'start':
+          return this.start(newDuration);
+        case 'stop':
+          return this.stop();
+        case 'resume':
+          return this.resume();
+        case 'pause':
+          return this.pause();
+        default:
+          throw new Error(`Unexpected default case in Timer.startRemoteListener.onActivity ${JSON.stringify(event)}`);
+      }
+    });
   }
 
   public dispose() {

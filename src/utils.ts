@@ -1,34 +1,18 @@
-import { extensions, window, workspace } from 'vscode';
-import { LiveShare, LiveShareExtension } from 'vsls';
-import { VSLS_EXT_ID, VSLS_VERSION, EXT_ROOT } from './constants';
+import { window, workspace } from 'vscode';
+import { getApi as getVSLSApi } from 'vsls';
+import { EXT_ROOT } from './constants';
 import { RaidConfiguration, InviteType, SlackRequestBody } from './configuration';
 import { ExtensionModule } from './module';
 
 
-export async function initApi(): Promise<LiveShare | null> {
-  const liveShareExtRef = extensions.getExtension<LiveShareExtension>(VSLS_EXT_ID);
-  if (!liveShareExtRef) {
-    note.warning('getReference for Live Share Extension failed');
-    return null;
-  }
-  const liveShareApi = await liveShareExtRef.exports.getApi(VSLS_VERSION);
+export async function init(): Promise<ExtensionModule> {
+  const liveShareApi = await getVSLSApi();
 
   if (!liveShareApi) {
-    note.warning('getApi for Live Share Extension failed');
-    return null;
-  }
-
-  return liveShareApi;
-};
-
-
-export async function init(): Promise<ExtensionModule> {
-  const api = await initApi();
-  if (!api) {
     throw new Error(`${EXT_ROOT}: Failed to get Live Share Extension API`);
   }
 
-  return new ExtensionModule(api);
+  return new ExtensionModule(liveShareApi);
 }
 
 

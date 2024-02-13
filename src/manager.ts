@@ -14,13 +14,13 @@ export class Manager {
 
     duration = 10 * 1000;
 
-    private navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1);
-    private driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
+    private _navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1);
+    private _driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
 
 
     disposables: { dispose(): void; }[] = [
-        this.navigatorBar,
-        this.driverBar,
+        this._navigatorBar,
+        this._driverBar,
     ];
 
     async inviteAndShare() {
