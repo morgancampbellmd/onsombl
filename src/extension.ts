@@ -37,8 +37,12 @@ export async function activate(context: ExtensionContext) {
 		note.info('I just ended a session');
 	});
 
+	const rotate = commands.registerCommand(ExtCommands.ROTATE_ACTIVE_USERS, () => {
+		note.info('Rotating driver/navigator...');
+	});
+
 	context.subscriptions.push(
-		pause, resume, open, invite, begin, start, end
+		pause, resume, open, invite, begin, start, end, rotate
 	);
 }
 

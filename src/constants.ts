@@ -29,6 +29,7 @@ export const ExtCommands = {
 	SEND_INVITE: `${EXT_ROOT}.sessionSendInviteNotification`,
 	BEGIN_SESSION: `${EXT_ROOT}.sessionBegin`,
 	END_SESSION: `${EXT_ROOT}.sessionEnd`,
+  ROTATE_ACTIVE_USERS: `${EXT_ROOT}.peerRotation`,
 	PAUSE_TIMER: `${EXT_ROOT}.timerPause`,
 	RESUME_TIMER: `${EXT_ROOT}.timerResume`,
   START_TIMER: `${EXT_ROOT}.timerStart`,
