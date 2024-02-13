@@ -1,8 +1,9 @@
 import { window, workspace } from 'vscode';
 import { getApi as getVSLSApi } from 'vsls';
 import { EXT_ROOT } from './constants';
-import { RaidConfiguration, InviteType, SlackRequestBody } from './configuration';
+import { IConfig, InviteType, SlackRequestBody } from './configuration';
 import { ExtensionModule } from './module';
+import pkg from '../package.json';
 
 
 export async function init(): Promise<ExtensionModule> {
@@ -27,38 +28,43 @@ export const note = {
 
 
 export async function dispatchInviteEvent(id: string | null, hostEmail?: string | null) {
-  const inviteConfig: RaidConfiguration = workspace.getConfiguration('onsombl.inviteConfig');
+//   const propertyNames = Object.keys(pkg.contributes.configuration.properties);
 
-  if (!inviteConfig?.inviteType) {
-    note.info('Unable to send invitation: Invite Type not specified in settings');
-    return;
-  } else if (!inviteConfig?.inviteUrl) {
-    note.info('Unable to send invitation: Invite URL not specified in settings');
-    return;
-  } else if (!id) {
-    note.error('Invite dispatch failed: No session ID has been created yet');
-    return;
-  } else if (!hostEmail) {
-    note.error('Invite dispatch failed: No host email found');
-    return;
-  }
+//   const inviteConfig: IConfig = workspace.getConfiguration('onsombl.inviteConfig');
 
-  const requestInit: RequestInit = {};
+//   if (!inviteConfig) {
+//     note.error('Failed to find extension configuration');
+//     return;
+//   } else if (!inviteConfig.webhookType) {
+//     note.info('Unable to send invitation: Invite Type not specified in settings');
+//     return;
+//   } else if (!inviteConfig.webhookUrl) {
+//     note.info('Unable to send invitation: Invite URL not specified in settings');
+//     return;
+//   } else if (!id) {
+//     note.error('Invite dispatch failed: No session ID has been created yet');
+//     return;
+//   } else if (!hostEmail) {
+//     note.error('Invite dispatch failed: No host email found');
+//     return;
+//   }
 
-  switch (inviteConfig.inviteType) {
-    case InviteType.SLACK:
-      const body: SlackRequestBody = {
-        host: hostEmail,
-        message: 'is forming a raid party!',
-        url: `https://prod.liveshare.vsengsaas.visualstudio.com/join?${id}`
-      };
-      requestInit.body = JSON.stringify(body);
-      break;
-    case InviteType.EMAIL:
-      break;
-    default:
-      throw new Error(`Unexpected default case for inviteType when opening RaidBar: ${inviteConfig.inviteType}`);
-  }
+//   const requestInit: RequestInit = {};
 
-  await fetch(inviteConfig.inviteUrl, requestInit);
+//   switch (inviteConfig.webhookType) {
+//     case InviteType.SLACK:
+//       const body: SlackRequestBody = {
+//         host: hostEmail,
+//         message: 'is forming a raid party!',
+//         url: `https://prod.liveshare.vsengsaas.visualstudio.com/join?${id}`
+//       };
+//       requestInit.body = JSON.stringify(body);
+//       break;
+//     case InviteType.EMAIL:
+//       break;
+//     default:
+//       throw new Error(`Unexpected default case for inviteType when opening RaidBar: ${inviteConfig.webhookType}`);
+//   }
+
+//   // await fetch(inviteConfig.inviteUrl, requestInit);
 }
