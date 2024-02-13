@@ -3,7 +3,6 @@ import { getApi as getVSLSApi } from 'vsls';
 import { EXT_ROOT } from './constants';
 import { IConfig, InviteType, SlackRequestBody } from './configuration';
 import { ExtensionModule } from './module';
-import pkg from '../package.json';
 
 
 export async function init(): Promise<ExtensionModule> {
