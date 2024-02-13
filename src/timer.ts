@@ -50,10 +50,6 @@ export class Timer {
     this.#endTime = ms + Date.now();
   }
 
-  get finished() {
-    return this.getRemainingMs() <= 0;
-  }
-
   start(duration: number) {
     this._bar.show();
     this._bar.command = ExtCommands.PAUSE_TIMER;
@@ -62,20 +58,23 @@ export class Timer {
   }
 
   pause() {
+    this._bar.show();
+    this._bar.command = ExtCommands.RESUME_TIMER;
     this.triggerUpdates(this.pause.name);
     this.haltUpdates();
-    this._bar.command = ExtCommands.RESUME_TIMER;
   }
 
   resume() {
     this.duration = this.getRemainingMs();
-    this.triggerUpdates(this.resume.name);
+    this._bar.show();
     this._bar.command = ExtCommands.PAUSE_TIMER;
+    this.triggerUpdates(this.resume.name);
   }
 
   stop() {
-    this.haltUpdates();
+    this._bar.show();
     this._bar.command = ExtCommands.START_TIMER;
+    this.haltUpdates();
   }
 
   haltUpdates() {
@@ -132,6 +131,8 @@ export class Timer {
     }
 
     const newDuration = event.data?.duration || this.#duration;
+
+    // name shape will look like onsombl/timer/start
     const name = event.name.split('/').at(-1);
 
     switch (name) {
@@ -156,15 +157,33 @@ export class Timer {
   }
 
   private setText() {
-    this._bar.text = this.finished ? 'TAG OUT' : `${displayTime(this.getRemainingMs())} remaining`;
-    const refreshRate = this.finished ? 1000 : 100;
+    const remainingMs = this.getRemainingMs();
+    const refreshRate = remainingMs <= 0 ? 1000 : 100;
+
+    if (remainingMs <= 0) {
+      this._bar.command = ExtCommands.ROTATE_ACTIVE_USERS;
+    }
+
+    switch (this._bar.command) {
+      case ExtCommands.START_TIMER:
+        this._bar.text = 'STOPPED (restart)';
+        break;
+      case ExtCommands.RESUME_TIMER:
+        this._bar.text = `${displayTime(remainingMs)} remaining (resume)`;
+        break;
+      case ExtCommands.PAUSE_TIMER:
+        this._bar.text = `${displayTime(remainingMs)} remaining (pause)`;
+        break;
+      case ExtCommands.ROTATE_ACTIVE_USERS:
+        this._bar.text = `TIME'S UP (rotate)`;
+    }
 
     clearTimeout(this.#textUpdateRef);
     this.#textUpdateRef = setTimeout(() => { this.setText(); }, refreshRate);
   }
 
   private setColor() {
-    if (!this.finished) {
+    if (this._bar.command !== ExtCommands.ROTATE_ACTIVE_USERS) {
       this.color = tc.def;
     } else if (this.color.bg === tc.neg.bg) {
       this.color = tc.pos;

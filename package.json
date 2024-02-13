@@ -89,6 +89,11 @@
         "command": "onsombl.timerResume",
         "category": "Onsombl",
         "title": "Resume Timer"
+      },
+      {
+        "command": "onsombl.peerRotation",
+        "category": "Onsombl",
+        "title": "Rotate Active Collaborators"
       }
     ]
   },
