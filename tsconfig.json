@@ -12,5 +12,6 @@
 		"strictBindCallApply": true,
 		"alwaysStrict": true,
 		"noFallthroughCasesInSwitch": true,
+		"resolveJsonModule": true
 	}
 }

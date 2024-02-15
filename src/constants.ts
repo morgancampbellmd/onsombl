@@ -1,6 +1,7 @@
 import { ThemeColor } from 'vscode';
+import * as project from '../package.json';
 
-export const EXT_ROOT = 'onsombl';
+export const EXT_ROOT = project.name;
 
 export enum ServiceName {
   COORDINATOR = 'coordinator'
