@@ -6,8 +6,8 @@ import { note } from './utils';
 
 export class Timer {
   readonly eventGroup = `${EXT_ROOT}/${this.constructor.name}`;
-  private readonly _bar: StatusBarItem;
-  private readonly _vsls: LiveShare;
+  readonly _bar: StatusBarItem;
+  readonly _vsls: LiveShare;
 
   constructor(
     vsls: LiveShare

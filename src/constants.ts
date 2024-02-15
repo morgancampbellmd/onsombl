@@ -1,8 +1,10 @@
 import { ThemeColor } from 'vscode';
 
 export const EXT_ROOT = 'onsombl';
-export const VSLS_VERSION = '1.0.4753';
-export const VSLS_EXT_ID = 'ms-vsliveshare.vsliveshare';
+
+export enum ServiceName {
+  COORDINATOR = 'coordinator'
+}
 
 export interface ColorPalette {
   bg: ThemeColor,

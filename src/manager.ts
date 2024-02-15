@@ -1,45 +1,70 @@
-import { StatusBarItem, window, StatusBarAlignment } from 'vscode';
-import { LiveShare, Peer, Access } from 'vsls';
-import { dispatchInviteEvent } from './utils';
+import { StatusBarItem, window, StatusBarAlignment, Disposable } from 'vscode';
+import { LiveShare, Peer, Access, SharedService, SharedServiceProxy } from 'vsls';
 import { Timer } from './timer';
+import { ServiceName } from './constants';
+
+
+
+function dispatchInvite(id: string | null, hostEmail: string | null) {
+
+}
 
 export class Manager {
+    readonly _vsls: LiveShare;
+    readonly _timer: Timer;
+    readonly _navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1);
+    readonly _driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
+
     constructor(
-        private vsls: LiveShare,
-        private timer: Timer
+        vsls: LiveShare, timer: Timer
     ) {
+        this._vsls = vsls;
+        this._timer = timer;
+
+
     }
 
     peers: Peer[] = [];
 
     duration = 10 * 1000;
 
-    private _navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1);
-    private _driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
 
+    host?: SharedService | null;
+    guest?: SharedServiceProxy | null;
 
-    disposables: { dispose(): void; }[] = [
+    disposables: Disposable[] = [
         this._navigatorBar,
         this._driverBar,
     ];
 
     async inviteAndShare() {
-        this.vsls.onDidChangeSession(async (sessionChangeEvent) => dispatchInviteEvent(sessionChangeEvent.session.id, sessionChangeEvent.session.user?.emailAddress));
+        this._vsls.onDidChangeSession((sessionChangeEvent) => dispatchInvite(sessionChangeEvent.session.id, sessionChangeEvent.session.user?.emailAddress ?? null));
         await this.startShareSession();
     }
 
 
     async startShareSession() {
-        if (!this.vsls.session.id) {
-            await this.vsls.share({
+        if (!this._vsls.session.id) {
+            await this._vsls.share({
                 access: Access.ReadWrite,
             });
         }
-        this.timer.initActivityListener();
+
+        this.host = await this._vsls.shareService(ServiceName.COORDINATOR);
+
         // wait for people to join...
         // - setup onjoin listener
 
         this.openSettingsPage();
+    }
+
+    async joinShareSession() {
+        // get input code/url (via ext api maybe?)
+
+        this.guest = await this._vsls.getSharedService(ServiceName.COORDINATOR);
+        this.guest?.onDidChangeIsServiceAvailable((event) => {
+
+        })
     }
 
 
@@ -57,12 +82,12 @@ export class Manager {
         // Set Driver & Navigator
         //
         // Start timer
-        this.timer.start(this.duration);
+        this._timer.start(this.duration);
     }
 
 
     endShareSession() {
-        this.vsls.end();
+        this._vsls.end();
     }
 
     dispose() {

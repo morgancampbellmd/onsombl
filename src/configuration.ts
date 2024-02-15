@@ -1,7 +1,8 @@
 import { WorkspaceConfiguration, workspace } from 'vscode';
 
 export enum InviteType {
-  SLACK = 'slack',
+  SLACK = 'slack-integration',
+  SLACK_EMAIL = 'slack-email',
   EMAIL = 'email',
 }
 
