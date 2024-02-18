@@ -1,21 +1,21 @@
-import { ThemeColor } from 'vscode';
-import * as project from '../package.json';
+import { ThemeColor } from 'vscode'
+import project from '../package.json'
 
-export const EXT_ROOT = project.name;
+export const EXT_ROOT = project.name
 
 export enum ServiceName {
   COORDINATOR = 'coordinator'
 }
 
 export interface ColorPalette {
-  bg: ThemeColor,
+  bg: ThemeColor
   fg: ThemeColor
 }
 
 export const tc: Record<string, ColorPalette> = {
   def: {
     bg: new ThemeColor('statusBarItem.prominentBackground'),
-    fg: new ThemeColor('statusBarItem.prominentForeground'),
+    fg: new ThemeColor('statusBarItem.prominentForeground')
   },
   pos: {
     bg: new ThemeColor('statusBarItem.remoteBackground'),
@@ -25,7 +25,7 @@ export const tc: Record<string, ColorPalette> = {
     bg: new ThemeColor('statusBarItem.errorBackground'),
     fg: new ThemeColor('statusBarItem.errorForeground')
   }
-};
+}
 
 export const ExtCommands = {
 	OPEN_SESSION: `${EXT_ROOT}.sessionOpen`,
@@ -36,7 +36,7 @@ export const ExtCommands = {
 	PAUSE_TIMER: `${EXT_ROOT}.timerPause`,
 	RESUME_TIMER: `${EXT_ROOT}.timerResume`,
   START_TIMER: `${EXT_ROOT}.timerStart`,
-  STOP_TIMER: `${EXT_ROOT}.timerStop`,
-};
+  STOP_TIMER: `${EXT_ROOT}.timerStop`
+}
 
 

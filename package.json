@@ -63,37 +63,44 @@
       {
         "command": "onsombl.sessionBegin",
         "category": "Onsombl",
-        "title": "Begin Timer"
+        "title": "Begin Timer",
+        "broadcast": true
       },
       {
         "command": "onsombl.sessionEnd",
         "category": "Onsombl",
-        "title": "Close Session"
+        "title": "Close Session",
+        "broadcast": true
       },
       {
         "command": "onsombl.timerStart",
         "category": "Onsombl",
-        "title": "Start Timer"
+        "title": "Start Timer",
+        "broadcast": true
       },
       {
         "command": "onsombl.timerStop",
         "category": "Onsombl",
-        "title": "Stop Timer"
+        "title": "Stop Timer",
+        "broadcast": true
       },
       {
         "command": "onsombl.timerPause",
         "category": "Onsombl",
-        "title": "Pause Timer"
+        "title": "Pause Timer",
+        "broadcast": true
       },
       {
         "command": "onsombl.timerResume",
         "category": "Onsombl",
-        "title": "Resume Timer"
+        "title": "Resume Timer",
+        "broadcast": true
       },
       {
         "command": "onsombl.peerRotation",
         "category": "Onsombl",
-        "title": "Rotate Active Collaborators"
+        "title": "Rotate Active Collaborators",
+        "broadcast": true
       }
     ]
   },
@@ -113,7 +120,7 @@
     "@typescript-eslint/parser": "^6.19.1",
     "@vscode/test-cli": "^0.0.4",
     "@vscode/test-electron": "^2.3.9",
-    "eslint": "^8.56.0",
+    "eslint": "8.52.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
