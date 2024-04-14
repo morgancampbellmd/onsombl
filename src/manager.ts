@@ -1,11 +1,11 @@
-import { StatusBarItem, window, StatusBarAlignment, Disposable } from 'vscode'
-import { LiveShare, Peer, Access } from 'vsls'
-import { Timer } from './timer'
-import { Coordinator } from './coordinator'
+import { StatusBarItem, window, StatusBarAlignment, Disposable } from 'vscode';
+import { LiveShare, Peer, Access } from 'vsls';
+import { Timer } from './timer';
+import { Coordinator } from './coordinator';
 
 export class Manager {
-    readonly _navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1)
-    readonly _driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2)
+    readonly _navigatorBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -1);
+    readonly _driverBar: StatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, -2);
 
     constructor(
         private readonly _vsls: LiveShare,
@@ -14,19 +14,19 @@ export class Manager {
     ) {
     }
 
-    peers: Peer[] = []
+    peers: Peer[] = [];
 
-    duration = 10 * 1000
+    duration = 10 * 1000;
 
     disposables: Disposable[] = [
         this._navigatorBar,
         this._driverBar
-    ]
+    ];
 
     async inviteAndShare() {
         // this._vsls.onDidChangeSession((sessionChangeEvent) => dispatchInvite(sessionChangeEvent.session.id, sessionChangeEvent.session.user?.emailAddress ?? null))
 
-        await this.startShareSession()
+        await this.startShareSession();
     }
 
 
@@ -34,15 +34,15 @@ export class Manager {
         if (!this._vsls.session.id) {
             await this._vsls.share({
                 access: Access.ReadWrite
-            })
+            });
         }
         
 
-        await this._coordinator.initService(this._vsls.session.role)
+        await this._coordinator.initService(this._vsls.session.role);
         // wait for people to join...
         // - setup onjoin listener
 
-        this.openSettingsPage()
+        this.openSettingsPage();
     }
 
     openRotationPage() {
@@ -59,17 +59,17 @@ export class Manager {
         // Set Driver & Navigator
         //
         // Start timer
-        this._timer.start(this.duration)
+        this._timer.start(this.duration);
     }
 
 
     endShareSession() {
-        this._vsls.end()
+        this._vsls.end();
     }
 
     dispose() {
         for (const resource of this.disposables) {
-            resource.dispose()
+            resource.dispose();
         }
     }
 }

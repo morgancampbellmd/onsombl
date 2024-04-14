@@ -1,4 +1,4 @@
-import { WorkspaceConfiguration, workspace } from 'vscode'
+import { WorkspaceConfiguration, workspace } from 'vscode';
 
 export enum InviteType {
   SLACK = 'slack-integration',
@@ -8,8 +8,8 @@ export enum InviteType {
 
 export interface SlackRequestBody {
   message: string;
-  host: string
-  url: string
+  host: string;
+  url: string;
 }
 
 export interface IConfig {
@@ -18,16 +18,16 @@ export interface IConfig {
 }
 
 export class Configuration {
-  readonly webhookType?: InviteType
-  readonly webhookUrl?: string
+  readonly webhookType?: InviteType;
+  readonly webhookUrl?: string;
 
   constructor() {
-    const extConfig: WorkspaceConfiguration = workspace.getConfiguration('onsombl')
+    const extConfig: WorkspaceConfiguration = workspace.getConfiguration('onsombl');
     if (!extConfig.has('inviteConfig')) {
-      throw new Error('No configuration for extension found')
+      throw new Error('No configuration for extension found');
     }
-    this.webhookType = extConfig.get<InviteType>('inviteConfig.webhookType')
-    this.webhookUrl = extConfig.get<string>('inviteConfig.webhookUrl')
+    this.webhookType = extConfig.get<InviteType>('inviteConfig.webhookType');
+    this.webhookUrl = extConfig.get<string>('inviteConfig.webhookUrl');
 
   }
 }
