@@ -1,44 +1,42 @@
-import { ExtensionContext, commands } from 'vscode';
-import { init, note } from './utils';
-import { ExtCommands } from './constants';
+import { ExtensionContext } from 'vscode';
+import { note } from './utils';
+import { ext } from './module';
 
 export async function activate(context: ExtensionContext) {
-	const module = await init(context.extension.id);
-	const Timer = module.Timer!;
-	const Manager = module.Manager!;
-	const Coordinator = module.Coordinator!;
+	await ext.init(context.extension.id);
+	const Coordinator = ext.coordinator!;
 
-	const pause = Coordinator.registerBroadcast(ExtCommands.PAUSE_TIMER, () => {
-		Timer.pause();
+	const pause = Coordinator.registerBroadcast(ext.cmd.PAUSE_TIMER, () => {
+		ext.timer.pause();
 	});
 
-	const resume = Coordinator.registerBroadcast(ExtCommands.RESUME_TIMER, () => {
-		Timer.resume();
+	const resume = Coordinator.registerBroadcast(ext.cmd.RESUME_TIMER, () => {
+		ext.timer.resume();
 	});
 
-	const open = Coordinator.registerBroadcast(ExtCommands.OPEN_SESSION, async () => {
-		await Manager.startShareSession();
+	const open = Coordinator.registerBroadcast(ext.cmd.OPEN_SESSION, async () => {
+		await ext.manager.startShareSession();
 
 		note.info('I just started a session');
    });
 
-	const invite = Coordinator.registerBroadcast(ExtCommands.SEND_INVITE, () => {
-		Manager.inviteAndShare();
+	const invite = Coordinator.registerBroadcast(ext.cmd.SEND_INVITE, () => {
+		ext.manager.inviteAndShare();
 	});
 
-	const begin = Coordinator.registerBroadcast(ExtCommands.BEGIN_SESSION, () => {
-		Manager.startRound();
+	const begin = Coordinator.registerBroadcast(ext.cmd.BEGIN_SESSION, () => {
+		ext.manager.startRound();
 	});
 
-	const start = Coordinator.registerBroadcast(ExtCommands.START_TIMER, () => {
-		Timer.start(15 * 1000);
+	const start = Coordinator.registerBroadcast(ext.cmd.START_TIMER, () => {
+		ext.timer.start(15 * 1000);
 	});
 
-	const end = Coordinator.registerBroadcast(ExtCommands.END_SESSION, async () => {
+	const end = Coordinator.registerBroadcast(ext.cmd.END_SESSION, async () => {
 		note.info('I just ended a session');
 	});
 
-	const rotate = Coordinator.registerBroadcast(ExtCommands.ROTATE_ACTIVE_USERS, () => {
+	const rotate = Coordinator.registerBroadcast(ext.cmd.ROTATE_ACTIVE_USERS, () => {
 		note.info('Rotating driver/navigator...');
 	});
 

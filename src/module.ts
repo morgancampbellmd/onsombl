@@ -1,30 +1,38 @@
-import { LiveShare } from 'vsls';
+import { LiveShare, getApi as getVSLSApi } from 'vsls';
+import {  } from 'vsls';
 import { Timer } from './timer';
 import { Manager } from './manager';
 import { Configuration } from './configuration';
 import { Coordinator } from './coordinator';
+import { EXT_ROOT, ExtCommands } from './constants';
 
 
-export class ExtensionModule {
-  Timer?: Timer;
-  Manager?: Manager;
-  Coordinator?: Coordinator;
-  Configuration?: Configuration;
+export namespace ext {
+  export let timer: Timer;
+  export let manager: Manager;
+  export let coordinator: Coordinator;
+  export let configuration: Configuration;
+  export let vsls: LiveShare;
 
-  constructor(
-    protected vsls: LiveShare
-  ) {
-    this.Configuration = new Configuration();
-    this.Coordinator = new Coordinator(vsls);
-    this.Timer = new Timer(vsls);
-    this.Manager = new Manager(vsls, this.Timer, this.Coordinator);
+  export const cmd = ExtCommands;
+
+  export async function init(extensionId: string) {
+    const liveShareApi = await getVSLSApi(extensionId);
+  
+    if (!liveShareApi) {
+      throw new Error(`${EXT_ROOT}: Failed to get Live Share Extension API`);
+    }
+
+    vsls = liveShareApi;
+    configuration = new Configuration();
+    coordinator = new Coordinator(vsls);
+    timer = new Timer(vsls);
+    manager = new Manager(vsls, timer, coordinator);
   }
 
 
-  dispose() {
-    this.Timer!.dispose();
-    this.Manager!.dispose();
-    delete this.Timer;
-    delete this.Manager;
+  export function dispose() {
+    timer.dispose();
+    manager.dispose();
   }
 }
