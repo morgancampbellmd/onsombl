@@ -11,16 +11,22 @@ export const note = {
 };
 
 interface Primitives {
-  'any': any
-  'string': string
-  'number': number
-  'bigint': bigint
-  'boolean': boolean
-  'symbol': symbol
-  'undefined': undefined
-  'object': object
-  'unknown': unknown
+  'any': any;
+  'bigint': bigint;
+  'boolean': boolean;
+  'number': number;
+  'object': object;
+  'string': string;
+  'symbol': symbol;
+  'undefined': undefined;
+  'unknown': unknown;
 }
+type PrimitivesArray = {
+  [key in keyof Primitives]: Array<Primitives[key]>;
+};
+
+type PrimitivesS<K extends keyof Primitives> = `${K}[]`;
+
 
 export const isObj = (u: unknown): u is NonNullable<object> => typeof u === 'object' && u !== null;
 export const has = <
@@ -28,6 +34,13 @@ O extends object,
 P extends string | number | symbol,
 T extends keyof Primitives = 'unknown'
 >(
-  o: O, p: P, t?: T
-): o is O & Record<P, Primitives[T]> =>
-has(o, p) && (!t || typeof o[p] === t);
+  o: O, p: P, t?:  T
+): o is O & Record<P, T> => {
+  const v = Object.getOwnPropertyDescriptor(o, p)?.value;
+  if (v) {
+    if (!t || typeof v === t) {
+      return true;
+    }
+  }
+  return false;
+};

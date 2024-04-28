@@ -1,115 +1,158 @@
-import { LiveShare, Role, SharedService, SharedServiceProxy, SessionChangeEvent, Server as VslsServer } from 'vsls';
+import * as vsls from 'vsls';
 import { EXT_ROOT, ServiceName } from './constants';
 import { Disposable, commands } from 'vscode';
 import project from '../package.json';
 import { has, isObj } from './utils';
-import { log } from 'console';
-import { Server as NodeServer, createServer } from 'node:http';
+import * as http from 'http';
+import * as net from 'net';
 
-interface Notification {
-  sourceId: string | undefined // userId
-  payload: any[]
+
+const formatBroadcastCommand = (name: string): string => name.startsWith(EXT_ROOT) ? name : [EXT_ROOT, name].join('.');
+const isBroadcastCommand = (name: unknown): name is string =>
+  typeof name === 'string'
+  && name.split('.').length > 2
+  && name.split('.')[0] === EXT_ROOT
+  && name.split('.')[1] === ServiceName.COORDINATOR;
+
+const isCoordinatorPayload = (p: unknown): p is Notification => isObj(p)
+  && has(p, 'payload', 'object')
+  && has(p, 'sourceId', 'string');
+
+const isExternal = (notification: Notification, currentUser: vsls.UserInfo | null) => notification.userId !== currentUser?.id;
+
+const host = '127.0.0.1';
+const hostPort = 4236;
+const guestPort = hostPort + 1;
+const url = `http://${host}:${hostPort}/`;
+const hostConnection: net.SocketConnectOpts = {
+  port: hostPort,
+  keepAlive: true,
+  host,
+};
+
+export interface Notification {
+  userId: string | undefined;
+  timestamp: number;
+  command: string;
+  payload: any[];
 }
 
 export class Coordinator {
-  service: SharedService | SharedServiceProxy | null = null;
+  service: vsls.SharedService | vsls.SharedServiceProxy | null = null;
   disposables: Disposable[] = [];
-  server: NodeServer | null = null;
+  server: http.Server | null = null;
+  history: Notification[] = [];
+  myPort?: number;
 
+  connections: net.Socket[] = [];
+
+  decoder = new TextDecoder();
+  encoder = new TextEncoder();
+  
   constructor (
-    private readonly _vsls: LiveShare
+    private readonly _vsls: vsls.LiveShare
   ) {
-    
-    _vsls.onDidChangeSession(
-      async (event) => {
-        log('Session change event');
-        await this.initService(event.session.role);
-      },
-      this.disposables
-    );
+    this._vsls.onDidChangeSession(this.initService.bind(this), this.disposables);
   }
 
-  async initService(role: Role) {
-    const hostname = '127.0.0.1';
-    const port = 3000;
-
-    if (role === Role.Host) {
-      const server = createServer((req, res) => {
-        res.statusCode = 200;
-      });
-      this.server = server;
-    
-      this.server!.listen(port, hostname, () => {
-        log(`Server listening on http://${hostname}:${port}/`);
-      });
-    } else {
-      const svc = await this._vsls.getSharedService('onsombl server');
-      const svr = await this._vsls.services.guestChannelService?.connectToChannel('onsombl server');
-      const brk = await this._vsls.presenceProviders;
-      log('Getting shared service');
-    }
-
-    log('Sharing service');
-    this.disposables.push(await this._vsls.shareServer({ port, displayName: 'onsombl server' }));
-
-    this.initListener();
-  }
-
-  dispose() {
-    this.disposables.forEach(disposable => disposable.dispose());
-  }
-
-
-  async getService(role: Role) {
-    try {
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-
-  getServiceFactory(role: Role) {
-  }
-
-
-  initListener() {
-
-    this.server!.on('request', (req, res) => {
-      const stream = req.read();
-      log(stream);
+  async initService(e: vsls.SessionChangeEvent) {
+    this.myPort = e.session.role === vsls.Role.Host ? hostPort : guestPort;
+    this.server = new http.Server({
+      keepAlive: true
     });
+    const sock = this.server.listen(this.myPort, host);
+    if (!this.server) {
+      console.error('Failed to initialize server');
+      return;
+    }
+    this.initListener(this.server);
 
-    for (const { command, broadcast } of project.contributes.commands) {
-      if (broadcast) {
-        this.service?.onNotify(command, this.handleBroadcast.bind(this, command));
-      }
+    if (e.session.role === vsls.Role.Host) {
+      console.log('Getting shared service');
+      const vslsServer = await this._vsls.shareServer({ port: hostPort, displayName: 'Onsombl Relay' });
+      this.disposables.push(vslsServer);
+    } else {
+
     }
   }
 
 
-  handleBroadcast(name: string, notification: object) {
-    console.log('Received notification!', name);
-    if (
-      isCoordinatorPayload(notification)
-      && isBroadcastCommand(name)
-      && notification.sourceId !== this._vsls.session.user?.id
-    )
-    {
-      console.log('Coordinator payload!', notification);
-      const args = notification.payload;
+  initListener(server: http.Server) {
+    server.on('request', this.handleHTTPRequest.bind(this));
+    server.on('connection', this.handleConnection.bind(this));
+    setInterval(() => {
+      console.log('Current connections', this.server!.connections);
+    }, 3000);
+  }
 
-      commands.executeCommand(name.split('.').at(-1)!, ...args);
+  handleConnection = (socket: net.Socket) => {
+    const address = socket.address();
+    this.connections.push(socket);
+    console.log('Connecting', address);
+    let _data = '';
+
+
+    socket.on('data', (data) => {
+      _data += data.toString();
+    });
+    socket.on('end', () => {
+      this.parseMessage(_data);
+      _data = '';
+    });
+    socket.on('close', (e) => {
+      if (e) {
+        console.error(`Connection ${address} closed with error`);
+      }
+    });
+    
+
+    // send status of rotations
+    // add user to rotation?
+  };
+
+  handleHTTPRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
+    if (!req.headers.authorization) {
+      console.debug(`Received smelly request: ${req.headers.authorization}`);
+      res.writeHead(400, 'Unauthorized', {});
+      res.end('Unauthorized');
+      console.log('Rejected request');
+    } else {
+      req.on('data', this.parseMessage.bind(this));
+      req.on('end', () => {
+        res.writeHead(200, 'OK', {});
+        res.end('OK');
+        console.log('Resolved request');
+      });
     }
-    else
-    {
-      console.log('Discarded irrelevant notification...');
+  };
+
+  parseMessage(data: any) {
+    let parsed;
+
+    try {
+      parsed = JSON.parse(this.decoder.decode(data));
+      this.handleBroadcast(parsed);
+    } catch (e) {
+      console.log('Failed to parse incoming request', e, data);
+      return;
+    }
+  }
+
+  handleBroadcast(notification: object) {
+    if (isCoordinatorPayload(notification) && isBroadcastCommand(notification.payload[0].name)) {
+      const name = notification.command;
+      const args = notification.payload;
+      console.log('Coordinator payload!', notification);
+      if (isExternal(notification, this._vsls.session.user)) {
+        commands.executeCommand(name.split('.').at(-1)!, ...args);
+        
+      }
     }
   }
 
 
   registerBroadcast: typeof commands.registerCommand = (command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable => {
     return commands.registerCommand(command, (...args: any[]) => {
-      console.log('Saw wrapped command');
       this.send(command, args);
       return callback(args);
     }, thisArg);
@@ -117,22 +160,50 @@ export class Coordinator {
 
 
   send(name: string, args: any) {
-    if (!this.service?.isServiceAvailable) {
-      return;
-    }
-
+    const fullCommand = formatBroadcastCommand(name);
     const body: Notification = {
+      command: fullCommand,
+      timestamp: Date.now(),
       payload: Array.isArray(args) ? args : [args],
-      sourceId: this._vsls.session.user?.id
+      userId: this._vsls.session.user?.id
     };
+    const payload = this.encoder.encode(JSON.stringify(body));
 
-    this.service.notify(formatBroadcastCommand(name), body);
-    console.log('Sent notification!', formatBroadcastCommand(name));
+
+    this.writeConnections.forEach((socket) => {
+      socket.write(payload, (error) => {
+        if (error) {
+          console.error('Failed while trying to send update to', socket.address());
+        } else {
+          // console.log('Successfully wrote')
+        }
+        socket.end();
+      });
+    });
+
+    console.log('Sent notification!', fullCommand);
+    // commands.executeCommand(fullCommand);
   }
 
+  get writeConnections() {
+    switch (this._vsls.session.role) {
+      case vsls.Role.Host:
+        return this.connections;
+
+      case vsls.Role.Guest:
+        return [this.connections[0]];
+
+      case vsls.Role.None:
+      default:
+        console.error('Not in a session somehow?');
+        return [];
+    }
+  }
+
+
+  dispose() {
+    this.server?.close();
+    this.connections.forEach(socket => socket.destroy());
+    this.disposables.forEach(disposable => disposable.dispose());
+  }
 }
-
-
-const formatBroadcastCommand = (name: string): string => [EXT_ROOT, ServiceName.COORDINATOR, name].join('.');
-const isBroadcastCommand = (name: unknown): name is string => typeof name === 'string' && name.split('.').length > 2 && name.split('.')[0] === EXT_ROOT && name.split('.')[1] === ServiceName.COORDINATOR;
-const isCoordinatorPayload = (n: unknown): n is Notification => isObj(n) && has(n, 'payload', 'object') && Array.isArray(n.payload) && has(n, 'origin', 'string');

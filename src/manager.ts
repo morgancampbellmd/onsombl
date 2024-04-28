@@ -37,8 +37,6 @@ export class Manager {
             });
         }
         
-
-        await this._coordinator.initService(this._vsls.session.role);
         // wait for people to join...
         // - setup onjoin listener
 
