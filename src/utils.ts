@@ -21,11 +21,6 @@ interface Primitives {
   'undefined': undefined;
   'unknown': unknown;
 }
-type PrimitivesArray = {
-  [key in keyof Primitives]: Array<Primitives[key]>;
-};
-
-type PrimitivesS<K extends keyof Primitives> = `${K}[]`;
 
 
 export const isObj = (u: unknown): u is NonNullable<object> => typeof u === 'object' && u !== null;
@@ -44,3 +39,7 @@ T extends keyof Primitives = 'unknown'
   }
   return false;
 };
+
+export const formatCommandName = (name: string): string => name.replace(`${EXT_ROOT}.`, '');
+
+
