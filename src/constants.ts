@@ -2,9 +2,17 @@ import { ThemeColor } from 'vscode';
 import project from '../package.json';
 
 export const EXT_ROOT = project.name;
+export const publisher = project.publisher;
 
 export enum ServiceName {
   COORDINATOR = 'coordinator'
+}
+
+export enum MobPhase {
+  INACTIVE,
+  PAUSED,
+  BREAK,
+  ACTIVE,
 }
 
 export interface ColorPalette {
