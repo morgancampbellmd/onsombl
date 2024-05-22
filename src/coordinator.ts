@@ -1,209 +1,204 @@
-import * as vsls from 'vsls';
-import { EXT_ROOT, ServiceName } from './constants';
-import { Disposable, commands } from 'vscode';
-import project from '../package.json';
-import { has, isObj } from './utils';
+import express from 'express';
 import * as http from 'http';
-import * as net from 'net';
+import socketIOServer from 'socket.io';
+import * as socketIOClient from 'socket.io-client';
+import { Disposable, commands } from 'vscode';
+import * as vsls from 'vsls';
+import project from '../package.json';
+import { State } from './state';
+import { formatCommandName, has, isObj, note } from './utils';
+import { instrument } from '@socket.io/admin-ui';
+import { MobPhase } from './constants';
 
 
-const formatBroadcastCommand = (name: string): string => name.startsWith(EXT_ROOT) ? name : [EXT_ROOT, name].join('.');
-const isBroadcastCommand = (name: unknown): name is string =>
-  typeof name === 'string'
-  && name.split('.').length > 2
-  && name.split('.')[0] === EXT_ROOT
-  && name.split('.')[1] === ServiceName.COORDINATOR;
-
-const isCoordinatorPayload = (p: unknown): p is Notification => isObj(p)
-  && has(p, 'payload', 'object')
-  && has(p, 'sourceId', 'string');
-
-const isExternal = (notification: Notification, currentUser: vsls.UserInfo | null) => notification.userId !== currentUser?.id;
-
-const host = '127.0.0.1';
-const hostPort = 4236;
-const guestPort = hostPort + 1;
-const url = `http://${host}:${hostPort}/`;
-const hostConnection: net.SocketConnectOpts = {
-  port: hostPort,
-  keepAlive: true,
-  host,
-};
-
-export interface Notification {
-  userId: string | undefined;
-  timestamp: number;
-  command: string;
-  payload: any[];
+export class Notification {
+  timestamp: number = Date.now();
+  constructor(
+    public command: string,
+    public payload: any[]
+  ) {}
 }
 
+const initialState: State = {
+  session: {
+    participants: new Set(),
+    phase: MobPhase.INACTIVE,
+    activeUser: undefined,
+    timestamp: Date.now()
+  },
+  settings: {
+    turnDuration: 0
+  },
+};
+
 export class Coordinator {
-  service: vsls.SharedService | vsls.SharedServiceProxy | null = null;
   disposables: Disposable[] = [];
-  server: http.Server | null = null;
-  history: Notification[] = [];
-  myPort?: number;
+  registeredCommands: string[] = [];
 
-  connections: net.Socket[] = [];
+  hostState: State | undefined;
+  guestState: State | undefined;
 
-  decoder = new TextDecoder();
-  encoder = new TextEncoder();
-  
+  app?: express.Express;
+  httpServer?: http.Server;
+
+  spoke?: socketIOClient.Socket;
+  hub?: socketIOServer.Server;
+
+  readonly mainPort = 4236;
+
   constructor (
     private readonly _vsls: vsls.LiveShare
   ) {
-    this._vsls.onDidChangeSession(this.initService.bind(this), this.disposables);
+    this._vsls.onDidChangeSession(this.handleSessionChange.bind(this), this.disposables);
   }
 
-  async initService(e: vsls.SessionChangeEvent) {
-    this.myPort = e.session.role === vsls.Role.Host ? hostPort : guestPort;
-    this.server = new http.Server({
-      keepAlive: true
-    });
-    const sock = this.server.listen(this.myPort, host);
-    if (!this.server) {
-      console.error('Failed to initialize server');
-      return;
+  async handleSessionChange(e: vsls.SessionChangeEvent) {
+    switch (e.session.role) {
+      case vsls.Role.Host:
+        await this.startHostService(e);
+        break;
+      case vsls.Role.Guest:
+      case vsls.Role.None:
     }
-    this.initListener(this.server);
 
-    if (e.session.role === vsls.Role.Host) {
-      console.log('Getting shared service');
-      const vslsServer = await this._vsls.shareServer({ port: hostPort, displayName: 'Onsombl Relay' });
-      this.disposables.push(vslsServer);
-    } else {
-
-    }
+    await this.startGuestService();
   }
 
+  async startHostService(e: vsls.SessionChangeEvent) {
+    this.hostState = initialState;
 
-  initListener(server: http.Server) {
-    server.on('request', this.handleHTTPRequest.bind(this));
-    server.on('connection', this.handleConnection.bind(this));
-    setInterval(() => {
-      console.log('Current connections', this.server!.connections);
-    }, 3000);
-  }
-
-  handleConnection = (socket: net.Socket) => {
-    const address = socket.address();
-    this.connections.push(socket);
-    console.log('Connecting', address);
-    let _data = '';
-
-
-    socket.on('data', (data) => {
-      _data += data.toString();
+    this.app = express();
+    this.httpServer = http.createServer(this.app);
+    this.hub = new socketIOServer.Server(this.httpServer, {
+      serveClient: false,
     });
-    socket.on('end', () => {
-      this.parseMessage(_data);
-      _data = '';
+
+    this.app.get('/', (req, res) => {
+      res.send(this.hostState);
     });
-    socket.on('close', (e) => {
-      if (e) {
-        console.error(`Connection ${address} closed with error`);
-      }
+
+    this.httpServer.listen(this.mainPort, '127.0.0.1', () => {
+      console.log('server running at http://localhost:' + this.mainPort);
     });
+  
+    return this._vsls
+      .shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' })
+      .then((ref) => {
+        this.hub!.on('connection', (socket) => {
+          console.log('new connection', socket.id, socket.nsp);
     
+          socket.emit('welcome', this.hostState);
+          this.initSocketEvents(socket);
+        });
 
-    // send status of rotations
-    // add user to rotation?
-  };
+        for (const config of project.contributes.commands) {
+          if (config.broadcast) {
+            const command = formatCommandName(config.command);
+            this.registeredCommands.push(command);
+            console.log('Hub broadcast command listener:', command);
+      
+            this.hub!.on(command, (args) => {
+              console.log('Hub saw command', command);
+              this.hub!.of('/').emit(command, args);
+            });
+          }
+        }
+    
+        instrument(this.hub!, { auth: false, });
+    
+        this.hub!.listen(this.mainPort);
 
-  handleHTTPRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
-    if (!req.headers.authorization) {
-      console.debug(`Received smelly request: ${req.headers.authorization}`);
-      res.writeHead(400, 'Unauthorized', {});
-      res.end('Unauthorized');
-      console.log('Rejected request');
-    } else {
-      req.on('data', this.parseMessage.bind(this));
-      req.on('end', () => {
-        res.writeHead(200, 'OK', {});
-        res.end('OK');
-        console.log('Resolved request');
-      });
-    }
-  };
-
-  parseMessage(data: any) {
-    let parsed;
-
-    try {
-      parsed = JSON.parse(this.decoder.decode(data));
-      this.handleBroadcast(parsed);
-    } catch (e) {
-      console.log('Failed to parse incoming request', e, data);
-      return;
-    }
-  }
-
-  handleBroadcast(notification: object) {
-    if (isCoordinatorPayload(notification) && isBroadcastCommand(notification.payload[0].name)) {
-      const name = notification.command;
-      const args = notification.payload;
-      console.log('Coordinator payload!', notification);
-      if (isExternal(notification, this._vsls.session.user)) {
-        commands.executeCommand(name.split('.').at(-1)!, ...args);
-        
-      }
-    }
+        this.disposables.push(ref);
+      })
+      .catch((err) => console.error('Failed to share server: ', err));
   }
 
 
-  registerBroadcast: typeof commands.registerCommand = (command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable => {
+  async startGuestService() {
+    this.spoke = socketIOClient.default({
+      port: this.mainPort,
+      host: '127.0.0.1',
+    });
+
+    this.spoke.on('message', (args) => {
+      note.info(`client got message initial state ${JSON.stringify(args)}`);
+    });
+
+    this.spoke.on('welcome', (args) => {
+      note.info(`got initial state ${JSON.stringify(args)}`);
+      this.guestState = args;
+    });
+
+    this.initSocketEvents(this.spoke);
+
+    this.spoke.connect();
+  }
+
+
+
+  handleBroadcast(notification: Notification) {
+    commands.executeCommand(notification.command, ...notification.payload);
+  }
+
+
+  registerBroadcast: typeof commands.registerCommand = (command, cb, thisArg?) => {
     return commands.registerCommand(command, (...args: any[]) => {
       this.send(command, args);
-      return callback(args);
+      return cb(args);
     }, thisArg);
   };
 
 
   send(name: string, args: any) {
-    const fullCommand = formatBroadcastCommand(name);
-    const body: Notification = {
-      command: fullCommand,
-      timestamp: Date.now(),
-      payload: Array.isArray(args) ? args : [args],
-      userId: this._vsls.session.user?.id
-    };
-    const payload = this.encoder.encode(JSON.stringify(body));
+    const command = formatCommandName(name);
+    const payload = Array.isArray(args) ? args : [args];
 
+    const body = new Notification(command, payload);
 
-    this.writeConnections.forEach((socket) => {
-      socket.write(payload, (error) => {
-        if (error) {
-          console.error('Failed while trying to send update to', socket.address());
-        } else {
-          // console.log('Successfully wrote')
-        }
-        socket.end();
-      });
-    });
-
-    console.log('Sent notification!', fullCommand);
-    // commands.executeCommand(fullCommand);
-  }
-
-  get writeConnections() {
-    switch (this._vsls.session.role) {
-      case vsls.Role.Host:
-        return this.connections;
-
-      case vsls.Role.Guest:
-        return [this.connections[0]];
-
-      case vsls.Role.None:
-      default:
-        console.error('Not in a session somehow?');
-        return [];
+    if (this.spoke) {
+      this.spoke.emit(command, body);
+      this.hub!.emit(command, body);
+      console.log('Sent notification!', command);
     }
   }
 
 
   dispose() {
-    this.server?.close();
-    this.connections.forEach(socket => socket.destroy());
+    this.hub?.close();
     this.disposables.forEach(disposable => disposable.dispose());
   }
+
+  initSocketEvents(socket: socketIOServer.Socket | socketIOClient.Socket) {
+    socket.onAny((eventNames, ...args) => {
+      console.log(`Saw ${eventNames} with args ${args}`);
+    });
+    socket.on('error', (args) => {
+      console.log(`\ngot error ${JSON.stringify(args)}\n`);
+    });
+
+    for (const config of project.contributes.commands) {
+      if (config.broadcast) {
+        const command = formatCommandName(config.command);
+        console.log('Spoke broadcast command listener:', command, socket.id);
+  
+        socket.on(command, (args) => {
+          console.log('Spoke saw command:', command);
+
+          if (this.isBroadcastPayload(args)) {
+            this.handleBroadcast(args);
+          }
+        });
+      }
+    }
+  }
+  
+  isBroadcastPayload(p: unknown): p is Notification  {
+    return isObj(p)
+      && has(p, 'payload', 'object')
+      && has(p, 'timestamp', 'string')
+      && has(p, 'command', 'string')
+      && this.registeredCommands.includes(p.command);
+  }
+
 }
+
