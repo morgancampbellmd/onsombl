@@ -1,5 +1,4 @@
 import { LiveShare, getApi as getVSLSApi } from 'vsls';
-import {  } from 'vsls';
 import { Timer } from './timer';
 import { Manager } from './manager';
 import { Configuration } from './configuration';
@@ -32,6 +31,7 @@ export namespace ext {
 
 
   export function dispose() {
+    coordinator.dispose();
     timer.dispose();
     manager.dispose();
   }
