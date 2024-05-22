@@ -8,7 +8,7 @@ import project from '../package.json';
 import { State } from './state';
 import { formatCommandName, has, isObj, note } from './utils';
 import { instrument } from '@socket.io/admin-ui';
-import { MobPhase } from './constants';
+import { EXT_ROOT, MobPhase } from './constants';
 
 
 export class Notification {
@@ -41,8 +41,8 @@ export class Coordinator {
   app?: express.Express;
   httpServer?: http.Server;
 
-  spoke?: socketIOClient.Socket;
-  hub?: socketIOServer.Server;
+  client?: socketIOClient.Socket;
+  server?: socketIOServer.Server;
 
   readonly mainPort = 4236;
 
@@ -53,6 +53,7 @@ export class Coordinator {
   }
 
   async handleSessionChange(e: vsls.SessionChangeEvent) {
+
     switch (e.session.role) {
       case vsls.Role.Host:
         await this.startHostService(e);
@@ -61,6 +62,7 @@ export class Coordinator {
       case vsls.Role.None:
     }
 
+    // Host will also have a copy of guestServices
     await this.startGuestService();
   }
 
@@ -69,75 +71,79 @@ export class Coordinator {
 
     this.app = express();
     this.httpServer = http.createServer(this.app);
-    this.hub = new socketIOServer.Server(this.httpServer, {
+    this.server = new socketIOServer.Server(this.httpServer, {
       serveClient: false,
     });
 
-    this.app.get('/', (req, res) => {
-      res.send(this.hostState);
-    });
+    // this.app.get('/', (req, res) => {
+    //   res.send(this.hostState);
+    // });
 
     this.httpServer.listen(this.mainPort, '127.0.0.1', () => {
       console.log('server running at http://localhost:' + this.mainPort);
     });
   
-    return this._vsls
-      .shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' })
-      .then((ref) => {
-        this.hub!.on('connection', (socket) => {
-          console.log('new connection', socket.id, socket.nsp);
-    
-          socket.emit('welcome', this.hostState);
-          this.initSocketEvents(socket);
+    const vslsServer = await this._vsls.shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' });
+
+    this.server!.on('connection', (socket) => {
+      console.log('new connection', socket.id);
+      this.initSocketEvents(socket);
+
+      socket.emit('welcome', this.hostState);
+    });
+
+    for (const config of project.contributes.commands) {
+      if (config.broadcast) {
+        const command = formatCommandName(config.command);
+        this.registeredCommands.push(command);
+        console.log('Hub broadcast command listener:', command);
+  
+        this.server!.on(command, (args) => {
+          console.log('Hub saw command', command);
+          this.server!.of('/').emit(command, args);
         });
+      }
+    }
+    instrument(this.server!, { auth: false, });
+    this.server!.listen(this.mainPort);
 
-        for (const config of project.contributes.commands) {
-          if (config.broadcast) {
-            const command = formatCommandName(config.command);
-            this.registeredCommands.push(command);
-            console.log('Hub broadcast command listener:', command);
-      
-            this.hub!.on(command, (args) => {
-              console.log('Hub saw command', command);
-              this.hub!.of('/').emit(command, args);
-            });
-          }
-        }
-    
-        instrument(this.hub!, { auth: false, });
-    
-        this.hub!.listen(this.mainPort);
-
-        this.disposables.push(ref);
-      })
-      .catch((err) => console.error('Failed to share server: ', err));
+    this.disposables.push(vslsServer);
   }
 
 
   async startGuestService() {
-    this.spoke = socketIOClient.default({
+    this.client = socketIOClient.default({
       port: this.mainPort,
       host: '127.0.0.1',
     });
 
-    this.spoke.on('message', (args) => {
+    this.client.on('message', (args) => {
       note.info(`client got message initial state ${JSON.stringify(args)}`);
     });
 
-    this.spoke.on('welcome', (args) => {
+    this.client.on('welcome', (args) => {
       note.info(`got initial state ${JSON.stringify(args)}`);
       this.guestState = args;
     });
 
-    this.initSocketEvents(this.spoke);
-
-    this.spoke.connect();
+    this.initSocketEvents(this.client);
+    this.client.connect();
   }
 
 
 
-  handleBroadcast(notification: Notification) {
-    commands.executeCommand(notification.command, ...notification.payload);
+  handleBroadcast(notification: unknown) {
+
+    if (this.isBroadcastPayload(notification)) {
+      const {
+        command, payload
+      } = notification;
+      console.log('Spoke saw command:', command);
+      commands.executeCommand(
+        command.startsWith(EXT_ROOT) ? command : `${EXT_ROOT}.${command}`,
+        ...payload
+      );
+    }
   }
 
 
@@ -155,23 +161,20 @@ export class Coordinator {
 
     const body = new Notification(command, payload);
 
-    if (this.spoke) {
-      this.spoke.emit(command, body);
-      this.hub!.emit(command, body);
+    if (this.client) {
+      this.client.emit(command, body);
+      this.server!.emit(command, body);
       console.log('Sent notification!', command);
     }
   }
 
 
   dispose() {
-    this.hub?.close();
+    this.server?.close();
     this.disposables.forEach(disposable => disposable.dispose());
   }
 
   initSocketEvents(socket: socketIOServer.Socket | socketIOClient.Socket) {
-    socket.onAny((eventNames, ...args) => {
-      console.log(`Saw ${eventNames} with args ${args}`);
-    });
     socket.on('error', (args) => {
       console.log(`\ngot error ${JSON.stringify(args)}\n`);
     });
@@ -181,23 +184,18 @@ export class Coordinator {
         const command = formatCommandName(config.command);
         console.log('Spoke broadcast command listener:', command, socket.id);
   
-        socket.on(command, (args) => {
-          console.log('Spoke saw command:', command);
-
-          if (this.isBroadcastPayload(args)) {
-            this.handleBroadcast(args);
-          }
-        });
+        socket.on(command, this.handleBroadcast.bind(this));
       }
     }
   }
   
   isBroadcastPayload(p: unknown): p is Notification  {
-    return isObj(p)
-      && has(p, 'payload', 'object')
+    if (!isObj(p)) {
+      return false;
+    }
+    return has(p, 'payload', 'object')
       && has(p, 'timestamp', 'string')
-      && has(p, 'command', 'string')
-      && this.registeredCommands.includes(p.command);
+      && has(p, 'command', 'string');
   }
 
 }
