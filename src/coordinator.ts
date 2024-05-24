@@ -53,13 +53,8 @@ export class Coordinator {
   }
 
   async handleSessionChange(e: vsls.SessionChangeEvent) {
-
-    switch (e.session.role) {
-      case vsls.Role.Host:
-        await this.startHostService(e);
-        break;
-      case vsls.Role.Guest:
-      case vsls.Role.None:
+    if (e.session.role === vsls.Role.Host) {
+      await this.startHostService(e);
     }
 
     // Host will also have a copy of guestServices
@@ -69,27 +64,12 @@ export class Coordinator {
   async startHostService(e: vsls.SessionChangeEvent) {
     this.hostState = initialState;
 
-    this.app = express();
-    this.httpServer = http.createServer(this.app);
-    this.server = new socketIOServer.Server(this.httpServer, {
-      serveClient: false,
-    });
+    this.initializeHostSocket();
 
-    // this.app.get('/', (req, res) => {
-    //   res.send(this.hostState);
-    // });
-
-    this.httpServer.listen(this.mainPort, '127.0.0.1', () => {
-      console.log('server running at http://localhost:' + this.mainPort);
-    });
-  
-    const vslsServer = await this._vsls.shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' });
+    await this.askUserToShareServer();
 
     this.server!.on('connection', (socket) => {
-      console.log('new connection', socket.id);
       this.initSocketEvents(socket);
-
-      socket.emit('welcome', this.hostState);
     });
 
     for (const config of project.contributes.commands) {
@@ -104,12 +84,28 @@ export class Coordinator {
         });
       }
     }
-    instrument(this.server!, { auth: false, });
-    this.server!.listen(this.mainPort);
 
-    this.disposables.push(vslsServer);
+    instrument(this.server!, { auth: false });
+    this.server!.listen(this.mainPort);
   }
 
+
+  private initializeHostSocket() {
+    this.app = express();
+    this.httpServer = http.createServer(this.app);
+
+    this.server = new socketIOServer.Server(this.httpServer, { serveClient: false, });
+
+    this.httpServer.listen(this.mainPort, '127.0.0.1', () => {
+      console.log('onsombl server running at http://127.0.0.1:' + this.mainPort);
+    });
+  }
+
+  private async askUserToShareServer() {
+    const server = await this._vsls.shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' });
+    this.disposables.push(server);
+    return;
+  }
 
   async startGuestService() {
     this.client = socketIOClient.default({
@@ -129,8 +125,6 @@ export class Coordinator {
     this.initSocketEvents(this.client);
     this.client.connect();
   }
-
-
 
   handleBroadcast(notification: unknown) {
 
@@ -169,12 +163,8 @@ export class Coordinator {
   }
 
 
-  dispose() {
-    this.server?.close();
-    this.disposables.forEach(disposable => disposable.dispose());
-  }
-
   initSocketEvents(socket: socketIOServer.Socket | socketIOClient.Socket) {
+    console.log('new connection', socket.id);
     socket.on('error', (args) => {
       console.log(`\ngot error ${JSON.stringify(args)}\n`);
     });
@@ -187,6 +177,8 @@ export class Coordinator {
         socket.on(command, this.handleBroadcast.bind(this));
       }
     }
+
+    socket.emit('welcome', this.hostState);
   }
   
   isBroadcastPayload(p: unknown): p is Notification  {
@@ -198,5 +190,10 @@ export class Coordinator {
       && has(p, 'command', 'string');
   }
 
+
+  dispose() {
+    this.server?.close();
+    this.disposables.forEach(disposable => disposable.dispose());
+  }
 }
 
