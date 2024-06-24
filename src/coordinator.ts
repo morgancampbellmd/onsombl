@@ -94,7 +94,8 @@ export class Coordinator {
     this.app = express();
     this.httpServer = http.createServer(this.app);
 
-    this.server = new socketIOServer.Server(this.httpServer, { serveClient: false, });
+    this.server = new socketIOServer.Server(this.httpServer, { serveClient: false, allowUpgrades: true,
+     });
 
     this.httpServer.listen(port, '127.0.0.1', () => {
       console.log(`onsombl server running at http://127.0.0.1:${port}`);
@@ -110,7 +111,7 @@ export class Coordinator {
   }
 
   async startGuestService() {
-    const client = socketIOClient.default('127.0.0.1', { port }).connect();
+    const client = socketIOClient.default('127.0.0.1', { port, upgrade: true });
 
     client.on('message', (args) => {
       note.info(`client got message initial state ${JSON.stringify(args)}`);
@@ -118,11 +119,14 @@ export class Coordinator {
 
     client.on('welcome', (args) => {
       note.info(`got initial state ${JSON.stringify(args)}`);
+      console.log(`got initial state ${JSON.stringify(args)}`);
       this.guestState = args;
     });
 
     this.client = client;
     this.initSocketEvents(client);
+    this.client.connect();
+    return this.client;
   }
 
 
@@ -185,7 +189,6 @@ export class Coordinator {
       return false;
     }
     return has(p, 'payload', 'object')
-      && has(p, 'timestamp', 'number')
       && has(p, 'command', 'string');
   }
 
