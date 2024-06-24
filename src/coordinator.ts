@@ -63,10 +63,11 @@ export class Coordinator {
 
   async startHostService(e: vsls.SessionChangeEvent) {
     this.hostState = initialState;
-    const server = this.server;
+
+    
+    const server = this.initializeHostSocket();
     if (!server) return;
 
-    this.initializeHostSocket();
 
 
     server.on('connection', (socket) => {
@@ -99,6 +100,8 @@ export class Coordinator {
     this.httpServer.listen(port, '127.0.0.1', () => {
       console.log(`onsombl server running at http://127.0.0.1:${port}`);
     });
+
+    return this.server;
   }
 
   private async askUserToShareServer() {
