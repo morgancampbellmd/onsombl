@@ -75,9 +75,8 @@ export class Coordinator {
       this.initSocketEvents(socket);
     });
 
-    for (const config of project.contributes.commands) {
-      if (config.broadcast) {
-        const command = formatCommandName(config.command);
+    for (const { broadcast, command } of project.contributes.commands) {
+      if (broadcast) {
   
         server.on(command, (args) => {
           console.log('Hub saw command', command);
@@ -136,8 +135,7 @@ export class Coordinator {
   };
 
 
-  send(name: string, args: any) {
-    const command = formatCommandName(name);
+  send(command: string, args: any) {
     const payload = [args].flat();
 
     const body = new Notification(command, payload);
