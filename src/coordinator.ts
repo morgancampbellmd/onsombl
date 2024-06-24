@@ -6,7 +6,7 @@ import { Disposable, commands } from 'vscode';
 import * as vsls from 'vsls';
 import project from '../package.json';
 import { State } from './state';
-import { formatCommandName, has, isObj, note } from './utils';
+import { has, isObj, note } from './utils';
 import { instrument } from '@socket.io/admin-ui';
 import { EXT_ROOT, MobPhase } from './constants';
 
@@ -161,9 +161,8 @@ export class Coordinator {
       console.log(`\ngot message ${JSON.stringify(args)}\n`);
     });
 
-    for (const config of project.contributes.commands) {
-      if (config.broadcast) {
-        const command = formatCommandName(config.command);
+    for (const { broadcast, command } of project.contributes.commands) {
+      if (broadcast) {
         console.log('Spoke broadcast command listener:', command, socket.id);
   
         socket.on(command, this.handleBroadcast.bind(this));
