@@ -31,9 +31,10 @@ const initialState: State = {
   },
 };
 
+const port = 4236;
+
 export class Coordinator {
   disposables: Disposable[] = [];
-  registeredCommands: string[] = [];
 
   hostState: State | undefined;
   guestState: State | undefined;
@@ -44,8 +45,6 @@ export class Coordinator {
   client?: socketIOClient.Socket;
   server?: socketIOServer.Server;
 
-  readonly mainPort = 4236;
-
   constructor (
     private readonly _vsls: vsls.LiveShare
   ) {
@@ -53,41 +52,41 @@ export class Coordinator {
   }
 
   async handleSessionChange(e: vsls.SessionChangeEvent) {
+    // Host will also have a copy of guestServices
+    await this.startGuestService();
     await this.startHostService(e);
   
     if (e.session.role === vsls.Role.Host) {
       await this.askUserToShareServer();
     }
-
-    // Host will also have a copy of guestServices
-    await this.startGuestService();
   }
 
   async startHostService(e: vsls.SessionChangeEvent) {
     this.hostState = initialState;
+    const server = this.server;
+    if (!server) return;
 
     this.initializeHostSocket();
 
 
-    this.server!.on('connection', (socket) => {
+    server.on('connection', (socket) => {
+      socket.emit('welcome', this.hostState);
       this.initSocketEvents(socket);
     });
 
     for (const config of project.contributes.commands) {
       if (config.broadcast) {
         const command = formatCommandName(config.command);
-        this.registeredCommands.push(command);
-        console.log('Hub broadcast command listener:', command);
   
-        this.server!.on(command, (args) => {
+        server.on(command, (args) => {
           console.log('Hub saw command', command);
           this.server!.of('/').emit(command, args);
         });
       }
     }
 
-    instrument(this.server!, { auth: false });
-    this.server!.listen(this.mainPort);
+    instrument(server, { auth: false });
+    server.listen(port);
   }
 
 
@@ -97,32 +96,31 @@ export class Coordinator {
 
     this.server = new socketIOServer.Server(this.httpServer, { serveClient: false, });
 
-    this.httpServer.listen(this.mainPort, '127.0.0.1', () => {
-      console.log('onsombl server running at http://127.0.0.1:' + this.mainPort);
+    this.httpServer.listen(port, '127.0.0.1', () => {
+      console.log(`onsombl server running at http://127.0.0.1:${port}`);
     });
   }
 
   private async askUserToShareServer() {
-    const server = await this._vsls.shareServer({ port: this.mainPort, displayName: 'Onsombl Relay' });
+    const server = await this._vsls.shareServer({ port, displayName: 'Onsombl Relay' });
     this.disposables.push(server);
     return;
   }
 
   async startGuestService() {
-    this.client = socketIOClient.default('127.0.0.1', {
-      port: this.mainPort,
-    }).connect();
+    const client = socketIOClient.default('127.0.0.1', { port }).connect();
 
-    this.client.on('message', (args) => {
+    client.on('message', (args) => {
       note.info(`client got message initial state ${JSON.stringify(args)}`);
     });
 
-    this.client.on('welcome', (args) => {
+    client.on('welcome', (args) => {
       note.info(`got initial state ${JSON.stringify(args)}`);
       this.guestState = args;
     });
 
-    this.initSocketEvents(this.client);
+    this.client = client;
+    this.initSocketEvents(client);
   }
 
 
@@ -137,7 +135,7 @@ export class Coordinator {
 
   send(name: string, args: any) {
     const command = formatCommandName(name);
-    const payload = Array.isArray(args) ? args : [args];
+    const payload = [args].flat();
 
     const body = new Notification(command, payload);
 
@@ -170,26 +168,16 @@ export class Coordinator {
         socket.on(command, this.handleBroadcast.bind(this));
       }
     }
-
-    socket.emit('welcome', this.hostState);
   }
 
   handleBroadcast(notification: unknown) {
     if (this.isBroadcastPayload(notification)) {
-      const {
-        command, payload
-      } = notification;
+      const { command, payload } = notification;
+
       console.log('Spoke saw command:', command);
-      commands.getCommands().then((cmds) => {
-        console.log(cmds);
 
-        commands.executeCommand(
-          command.startsWith(EXT_ROOT) ? command : `${EXT_ROOT}.${command}`,
-          ...payload
-        );
-      });
+      commands.executeCommand(command, ...payload);
     }
-
   }
   
   isBroadcastPayload(p: unknown): p is Notification  {
