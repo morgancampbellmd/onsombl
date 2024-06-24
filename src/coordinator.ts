@@ -53,8 +53,10 @@ export class Coordinator {
   }
 
   async handleSessionChange(e: vsls.SessionChangeEvent) {
+    await this.startHostService(e);
+  
     if (e.session.role === vsls.Role.Host) {
-      await this.startHostService(e);
+      await this.askUserToShareServer();
     }
 
     // Host will also have a copy of guestServices
@@ -66,7 +68,6 @@ export class Coordinator {
 
     this.initializeHostSocket();
 
-    await this.askUserToShareServer();
 
     this.server!.on('connection', (socket) => {
       this.initSocketEvents(socket);
@@ -108,10 +109,9 @@ export class Coordinator {
   }
 
   async startGuestService() {
-    this.client = socketIOClient.default({
+    this.client = socketIOClient.default('127.0.0.1', {
       port: this.mainPort,
-      host: '127.0.0.1',
-    });
+    }).connect();
 
     this.client.on('message', (args) => {
       note.info(`client got message initial state ${JSON.stringify(args)}`);
@@ -123,22 +123,8 @@ export class Coordinator {
     });
 
     this.initSocketEvents(this.client);
-    this.client.connect();
   }
 
-  handleBroadcast(notification: unknown) {
-
-    if (this.isBroadcastPayload(notification)) {
-      const {
-        command, payload
-      } = notification;
-      console.log('Spoke saw command:', command);
-      commands.executeCommand(
-        command.startsWith(EXT_ROOT) ? command : `${EXT_ROOT}.${command}`,
-        ...payload
-      );
-    }
-  }
 
 
   registerBroadcast: typeof commands.registerCommand = (command, cb, thisArg?) => {
@@ -157,8 +143,11 @@ export class Coordinator {
 
     if (this.client) {
       this.client.emit(command, body);
-      this.server!.emit(command, body);
-      console.log('Sent notification!', command);
+      console.log('Client Sent notification!', command);
+    }
+    if (this.server) {
+      this.server.emit(command, body);
+      console.log('Server Sent notification!', command);
     }
   }
 
@@ -167,6 +156,10 @@ export class Coordinator {
     console.log('new connection', socket.id);
     socket.on('error', (args) => {
       console.log(`\ngot error ${JSON.stringify(args)}\n`);
+    });
+
+    socket.on('message', (args) => {
+      console.log(`\ngot message ${JSON.stringify(args)}\n`);
     });
 
     for (const config of project.contributes.commands) {
@@ -180,13 +173,31 @@ export class Coordinator {
 
     socket.emit('welcome', this.hostState);
   }
+
+  handleBroadcast(notification: unknown) {
+    if (this.isBroadcastPayload(notification)) {
+      const {
+        command, payload
+      } = notification;
+      console.log('Spoke saw command:', command);
+      commands.getCommands().then((cmds) => {
+        console.log(cmds);
+
+        commands.executeCommand(
+          command.startsWith(EXT_ROOT) ? command : `${EXT_ROOT}.${command}`,
+          ...payload
+        );
+      });
+    }
+
+  }
   
   isBroadcastPayload(p: unknown): p is Notification  {
     if (!isObj(p)) {
       return false;
     }
     return has(p, 'payload', 'object')
-      && has(p, 'timestamp', 'string')
+      && has(p, 'timestamp', 'number')
       && has(p, 'command', 'string');
   }
 
