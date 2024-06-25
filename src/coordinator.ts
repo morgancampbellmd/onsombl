@@ -67,14 +67,12 @@ export class Coordinator {
       this.initSocketEvents(socket);
     });
 
-    for (const { broadcast, command } of project.contributes.commands) {
-      if (broadcast) {
-  
-        server.on(command, (args) => {
-          console.log('Hub saw command', command);
-          server.emit(command, args);
-        });
-      }
+    for (const { command } of project.contributes.commands.filter((c) => c.broadcast)) {
+      server.on(command, (args) => {
+        console.log('Hub saw command', command);
+        server.emit(command, args);
+        server.serverSideEmit(command, args);
+      });
     }
 
     instrument(server, { auth: false });
@@ -119,6 +117,7 @@ export class Coordinator {
 
 
     this.server!.emit(command, body);
+    this.server!.serverSideEmit(command, body);
     console.log('Server Sent notification!', command);
   }
 
