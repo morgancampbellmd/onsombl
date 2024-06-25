@@ -93,7 +93,7 @@ export class Coordinator {
       console.log(`onsombl server running at http://127.0.0.1:${port}`);
     });
 
-    return server;
+    return this.server = server;
   }
 
   async askUserToShareServer() {
@@ -117,10 +117,9 @@ export class Coordinator {
 
     const body = new Notification(command, payload);
 
-    if (this.server) {
-      this.server.emit(command, body);
-      console.log('Server Sent notification!', command);
-    }
+
+    this.server!.emit(command, body);
+    console.log('Server Sent notification!', command);
   }
 
 
