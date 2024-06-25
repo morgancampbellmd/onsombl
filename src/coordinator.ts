@@ -104,7 +104,7 @@ export class Coordinator {
 
 
 
-  registerBroadcast: typeof commands.registerCommand = (command, cb, thisArg?) => {
+  registerCommand: typeof commands.registerCommand = (command, cb, thisArg?) => {
     return commands.registerCommand(command, (...args: any[]) => {
       this.send(command, args);
       return cb(args);
