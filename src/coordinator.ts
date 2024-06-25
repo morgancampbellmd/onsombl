@@ -1,14 +1,13 @@
 import express from 'express';
 import * as http from 'http';
 import socketIOServer from 'socket.io';
-import * as socketIOClient from 'socket.io-client';
 import { Disposable, commands } from 'vscode';
 import * as vsls from 'vsls';
 import project from '../package.json';
 import { State } from './state';
-import { has, isObj, note } from './utils';
+import { has, isObj } from './utils';
 import { instrument } from '@socket.io/admin-ui';
-import { EXT_ROOT, MobPhase } from './constants';
+import { MobPhase } from './constants';
 
 
 export class Notification {
@@ -36,13 +35,12 @@ const port = 4236;
 export class Coordinator {
   disposables: Disposable[] = [];
 
-  hostState: State | undefined;
+  hostState: State = initialState;
   guestState: State | undefined;
 
   app?: express.Express;
   httpServer?: http.Server;
 
-  client?: socketIOClient.Socket;
   server?: socketIOServer.Server;
 
   constructor (
@@ -52,22 +50,16 @@ export class Coordinator {
   }
 
   async handleSessionChange(e: vsls.SessionChangeEvent) {
-    // Host will also have a copy of guestServices
-    await this.startGuestService();
-    await this.startHostService(e);
+    await this.startHostService();
   
     if (e.session.role === vsls.Role.Host) {
       await this.askUserToShareServer();
     }
   }
 
-  async startHostService(e: vsls.SessionChangeEvent) {
-    this.hostState = initialState;
-
-    
+  async startHostService() {
     const server = this.initializeHostSocket();
     if (!server) return;
-
 
 
     server.on('connection', (socket) => {
@@ -80,53 +72,34 @@ export class Coordinator {
   
         server.on(command, (args) => {
           console.log('Hub saw command', command);
-          this.server!.of('/').emit(command, args);
+          server.emit(command, args);
         });
       }
     }
 
     instrument(server, { auth: false });
+
     server.listen(port);
   }
 
 
-  private initializeHostSocket() {
-    this.app = express();
-    this.httpServer = http.createServer(this.app);
+  initializeHostSocket() {
+    const app = express();
+    const httpServer = http.createServer(app);
 
-    this.server = new socketIOServer.Server(this.httpServer, { serveClient: false, allowUpgrades: true,
-     });
+    const server = new socketIOServer.Server(httpServer, { serveClient: false, allowUpgrades: true });
 
-    this.httpServer.listen(port, '127.0.0.1', () => {
+    httpServer.listen(port, 'localhost', () => {
       console.log(`onsombl server running at http://127.0.0.1:${port}`);
     });
 
-    return this.server;
+    return server;
   }
 
-  private async askUserToShareServer() {
-    const server = await this._vsls.shareServer({ port, displayName: 'Onsombl Relay' });
+  async askUserToShareServer() {
+    const server = await this._vsls.shareServer({ port });
     this.disposables.push(server);
     return;
-  }
-
-  async startGuestService() {
-    const client = socketIOClient.default('127.0.0.1', { port, upgrade: true });
-
-    client.on('message', (args) => {
-      note.info(`client got message initial state ${JSON.stringify(args)}`);
-    });
-
-    client.on('welcome', (args) => {
-      note.info(`got initial state ${JSON.stringify(args)}`);
-      console.log(`got initial state ${JSON.stringify(args)}`);
-      this.guestState = args;
-    });
-
-    this.client = client;
-    this.initSocketEvents(client);
-    this.client.connect();
-    return this.client;
   }
 
 
@@ -144,10 +117,6 @@ export class Coordinator {
 
     const body = new Notification(command, payload);
 
-    if (this.client) {
-      this.client.emit(command, body);
-      console.log('Client Sent notification!', command);
-    }
     if (this.server) {
       this.server.emit(command, body);
       console.log('Server Sent notification!', command);
@@ -155,7 +124,7 @@ export class Coordinator {
   }
 
 
-  initSocketEvents(socket: socketIOServer.Socket | socketIOClient.Socket) {
+  initSocketEvents(socket: socketIOServer.Socket) {
     console.log('new connection', socket.id);
     socket.on('error', (args) => {
       console.log(`\ngot error ${JSON.stringify(args)}\n`);
